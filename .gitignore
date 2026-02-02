@@ -1,0 +1,16 @@
+# Environments
+.venv/
+.env
+
+# Build & Dist
+dist/
+build/
+*.egg-info/
+
+# Cache & Logs
+__pycache__/
+*.pyc
+.pytest_cache/
+.linker_cache/
+*.log
+*_output.txt
