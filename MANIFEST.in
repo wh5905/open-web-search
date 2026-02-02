@@ -1,0 +1,29 @@
+include README.md
+include LICENSE
+include requirements.txt
+recursive-include linker_search *.py
+recursive-include linker_search/server *.py
+
+# Exclude sensitive & temporary files
+exclude .env
+exclude .gitignore
+exclude *.log
+exclude output.txt
+exclude debug_*.py
+exclude *.json
+exclude *.md
+
+# Re-include important MDs if needed, but usually just README is enough
+include README.md
+
+# Prune directories not needed for the library
+prune tests
+prune simulations
+prune examples
+prune .github
+prune .idea
+prune .linker_cache
+prune __pycache__
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude .DS_Store
