@@ -1,0 +1,69 @@
+[
+  {
+    "id": "HALLUCINATION",
+    "query": "What are the new syntax features introduced in Python 4.0 release?",
+    "answer": "There are no known new syntax features introduced in Python 4.0, as Python 4.0 has not been officially released or announced by the Python Software Foundation. The provided context does not contain any details about syntax features in Python 4.0. Instead, sources [1] through [5] reference Python 3.x releases and discuss features from earlier versions, such as PEPs related to syntax improvements in Python 3.5, 3.4, and 3.3 [1], or general language changes in Python 2.x [2–3]. Source [4] mentions Python 4.0 as a \"game-changer\" and highlights potential new features, but it does not specify any actual syntax features or provide verifiable technical details [4]. Source [5] discusses the evolution of type hints and performance improvements but confirms that Python 4.0 is not currently planned [5].\n\nTherefore, based on the available information, **no new syntax features have been introduced in Python 4.0**, as the version has not been officially released.\n\n[4]",
+    "evidence_count": 13,
+    "steps": 1,
+    "blocked_domains": [
+      "medium.com"
+    ],
+    "rewritten_queries": [
+      "What are the major syntax improvements in Python 4.0?",
+      "What new language constructs were added in Python 4.0?",
+      "What changes to Python's syntax structure were introduced in version 4.0?"
+    ]
+  },
+  {
+    "id": "CONFLICT",
+    "query": "Is intermittent fasting effective for building muscle in women? Scientific consensus 2024.",
+    "answer": "No sufficient evidence found to answer the query.",
+    "evidence_count": 0,
+    "steps": 2,
+    "blocked_domains": [],
+    "rewritten_queries": [
+      "Effectiveness of intermittent fasting on muscle gain in women according to 2024 scientific studies",
+      "Scientific consensus on whether intermittent fasting supports or hinders muscle building in female adults in 2024",
+      "Review of 2024 research on muscle protein synthesis and recovery during intermittent fasting in women"
+    ]
+  },
+  {
+    "id": "TEMPORAL",
+    "query": "Who won the Super Bowl 2025 and what was the score?",
+    "answer": "No sufficient evidence found to answer the query.",
+    "evidence_count": 0,
+    "steps": 2,
+    "blocked_domains": [],
+    "rewritten_queries": [
+      "Super Bowl 2025 winner",
+      "Super Bowl 2025 final score",
+      "Super Bowl 2025 game result"
+    ]
+  },
+  {
+    "id": "CROSS_LINGUAL",
+    "query": "일본의 '지진해일 대피 타워' 설계 기준과 최신 사례",
+    "answer": "No sufficient evidence found to answer the query.",
+    "evidence_count": 0,
+    "steps": 2,
+    "blocked_domains": [],
+    "rewritten_queries": [
+      "일본 지진해일 대피 타워의 설계 기준 및 기술적 요소",
+      "최근 일본에서 구축된 지진해일 대피 타워 사례별 비교 분석",
+      "지진해일 대피 타워의 안전성 평가와 국제적 기준 비교"
+    ]
+  },
+  {
+    "id": "UNBLOCKING",
+    "query": "Latest verified leaks for GTA VI release date and map features from Reddit and Twitter.",
+    "answer": "No sufficient evidence found to answer the query.",
+    "evidence_count": 0,
+    "steps": 2,
+    "blocked_domains": [],
+    "rewritten_queries": [
+      "Latest verified leaks about GTA VI release date from Reddit and Twitter",
+      "Latest verified leaks regarding GTA VI map features from Reddit and Twitter",
+      "Sources and credibility analysis of GTA VI release date and map feature leaks shared on Reddit and Twitter"
+    ]
+  }
+]

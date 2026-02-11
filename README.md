@@ -1,3 +1,4 @@
+
 <div align="center">
 
 # 🌐 Open-Web-Search
@@ -222,3 +223,4 @@ We love contributions! Please see `CONTRIBUTING.md`.
 
 ## 📄 License
 Distributed under the MIT License. See `LICENSE` for more information.
+
