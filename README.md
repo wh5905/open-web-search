@@ -64,23 +64,40 @@ TAVILY_API_URL=http://127.0.0.1:7800/search
 ### Scenario B: Python Library (Direct)
 Use it directly in your Python code for maximum control.
 
-**Quick Start (Deep Research)**
+**Quick Start (Zero-Config)**
 ```python
 import asyncio
-from open_web_search import AsyncPipeline
+import open_web_search as ows
 
 async def main():
-    # Defaults to 'Deep Mode' (Recursive, Smart Reading)
-    pipeline = AsyncPipeline()
-    
-    # 🧠 This runs the full "Plan -> Search -> Read -> Refine -> Synthesize" loop
-    result = await pipeline.run("What are the latest breakthroughs in Solid State Batteries?")
+    # 🚀 "It Just Works" - Defaults to Balanced Mode
+    result = await ows.search("What are the latest breakthroughs in Solid State Batteries?")
     
     print(result.answer)
     print("Sources:", [p.url for p in result.pages])
 
 if __name__ == "__main__":
     asyncio.run(main())
+```
+
+**Advanced Usage (Parameter Override)**
+```python
+# Override options without creating a config object
+result = await ows.search(
+    "Quick market summary",
+    mode="fast",            # Turbo mode
+    reranker_type="flash",  # Use FlashRanker (v0.8.0)
+    max_evidence=5
+)
+```
+
+**Power User (Pipeline API)**
+```python
+from open_web_search import LinkerConfig, AsyncPipeline
+
+config = LinkerConfig(mode="deep", reranker_type="flash")
+pipeline = AsyncPipeline(config)
+# ... reusable pipeline
 ```
 
 **2. Enterprise Mode (Intranet Access)**

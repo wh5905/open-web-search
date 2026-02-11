@@ -17,8 +17,10 @@ async def main():
         FetchedPage(url="http://tech.com", text_plain="New Macbook Pro released by Apple Inc.")
     ]
     # Manually split chunks for testing
-    for p in pages:
-        p.chunks = [EvidenceChunk(content=p.text_plain, source_url=p.url)]
+    # Manually split chunks for testing - SKIPPED (Handled by Refiner internally)
+    # for i, p in enumerate(pages):
+    #     p.chunks = ... 
+    pass
 
     # 2. Test Fast Mode (Baseline)
     print("\n--- Testing 'Fast' Mode (Bi-Encoder) ---")

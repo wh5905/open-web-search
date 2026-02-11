@@ -3,6 +3,7 @@ from typing import List
 from loguru import logger
 from open_web_search.schemas.results import FetchedPage, EvidenceChunk
 from open_web_search.refiners.base import BaseRefiner
+from open_web_search.refiners.keyword import KeywordRefiner
 from open_web_search.config import LinkerConfig
 
 class FlashRefiner(BaseRefiner):
@@ -14,8 +15,9 @@ class FlashRefiner(BaseRefiner):
     def __init__(self, config: LinkerConfig):
         self.config = config
         self.model = None
-        self.tokenizer = None
         self._is_loaded = False
+        # Use KeywordRefiner for efficient chunking (min_relevance=0 to keep all chunks)
+        self.chunker = KeywordRefiner(chunk_size=config.chunk_size, min_relevance=0.0)
 
     def _lazy_load(self):
         """
@@ -49,20 +51,10 @@ class FlashRefiner(BaseRefiner):
         """
         Reranks chunks using the Cross-Encoder.
         """
-        # 1. Collect all chunks from pages
-        all_chunks = []
-        for p in pages:
-            # If pages have chunks already (pre-split), use them
-            # Otherwise we might need to split here. 
-            # Assuming pages come with chunks from the Reader phase or previous Refiner phase.
-            # But BaseRefiner usually takes raw pages. 
-            # Let's assume we need to split if not split.
-            # For now, let's assume the 'HybridRefiner' logic of splitting first.
-            if hasattr(p, 'chunks') and p.chunks:
-                all_chunks.extend(p.chunks)
-            else:
-                # Basic splitting fallback if needed, or assume empty
-                pass
+        # 1. Chunking Phase
+        # We use KeywordRefiner to split pages into manageable chunks first
+        # This handles the raw text -> chunks conversion
+        all_chunks = await self.chunker.refine(pages, query)
 
         if not all_chunks:
             logger.warning("No chunks available for FlashRanker.")
@@ -72,10 +64,12 @@ class FlashRefiner(BaseRefiner):
         self._lazy_load()
 
         # 3. Prepare Pairs for Cross-Encoder [Query, Text]
+        # CrossEncoder expects a list of tuples/lists: [[query, doc1], [query, doc2], ...]
         pairs = [[query, chunk.content] for chunk in all_chunks]
         
         # 4. Predict
         logger.info(f"⚡ [FlashRanker] Scoring {len(pairs)} chunks...")
+        # Use batch_size to avoid OOM on large sets if needed, but default is usually fine for <100 chunks
         scores = self.model.predict(pairs)
 
         # 5. Assign Scores & Sort
@@ -88,5 +82,7 @@ class FlashRefiner(BaseRefiner):
         # 6. Filter Top K
         top_k = ranked_chunks[:self.config.max_evidence]
         
-        logger.info(f"⚡ [FlashRanker] Top chunk score: {top_k[0].relevance_score if top_k else 0:.4f}")
+        if top_k:
+            logger.info(f"⚡ [FlashRanker] Top chunk score: {top_k[0].relevance_score:.4f}")
+            
         return top_k
