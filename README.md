@@ -1,5 +1,4 @@
 
-<div align="center">
 
 # 🌐 Open-Web-Search
 **The Standard Open Source Alternative to Tavily**
