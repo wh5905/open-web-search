@@ -163,6 +163,10 @@ config = LinkerConfig(
 
 ## 🏗️ Architecture
 
+<details>
+<summary><b>🏗️ Architecture Diagram</b></summary>
+<br>
+
 ```mermaid
 flowchart TD
     User[query] --> Planner["LLM Planner"]
@@ -182,6 +186,7 @@ flowchart TD
     Refiner -->|Top K Chunks| Synthesizer["LLM Answer"]
     Synthesizer --> Result
 ```
+</details>
 
 ## 📊 Performance Benchmark
 
@@ -192,7 +197,7 @@ Real-world comparison of **Open-Web-Search (v0.7)** vs **Tavily SaaS**.
 | **Avg Latency** | **~2.0s** | ~7.5s | **~0.9s** |
 | **Cost** | **Free** (Self-Hosted) | **Free** (Self-Hosted) | Paid Tier |
 | **Privacy** | ✅ **100% Private** | ✅ **100% Private** | ❌ Data sent to Cloud |
-| **Context** | 📄 Top 3 Pages | 📚 **Recursive Crawl** | ✂️ Indexed Snippets |
+| **Context** | 📄 Top 3 Pages | 📚 **Recursive Crawl** | ✂️ Snippets (Full Text = $$) |
 | **Use Case** | RAG Chatbots | **Deep Research Agents** | Simple Q&A |
 
 
