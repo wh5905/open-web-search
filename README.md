@@ -19,9 +19,9 @@ It mimics the [Tavily API](https://tavily.com) but runs **100% locally** (or on 
 
 | Feature | 🌐 Open-Web-Search | 🤖 Tavily API |
 | :--- | :--- | :--- |
-| **Content** | **Full Page Scraping** (HTML) | Snippets / Summaries |
+| **Content** | **Full Page Scraping** (Default) | Snippets (Full Text = Extra Credits) |
 | **Privacy** | **100% On-Premise** (Private) | ❌ Cloud-Hosted (Data Logged) |
-| **Cost** | **Free** (Your Interface) | Per-Request Pricing |
+| **Cost** | **Free** (Self-Hosted) | Pay-per-Request (Extraction is $$) |
 | **Intranet** | ✅ Can crawl internal IPs | ❌ Public Web Only |
 | **Drop-in** | ✅ Compatible Schema | - |
 | **Deep Mode**| ✅ Recursive "Research Loop" | ✅ "Deep Search" |
