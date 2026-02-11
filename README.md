@@ -1,4 +1,5 @@
 
+<div align="center">
 
 # 🌐 Open-Web-Search
 **The Standard Open Source Alternative to Tavily**
@@ -6,6 +7,8 @@
 [![PyPI version](https://badge.fury.io/py/open-web-search.svg)](https://badge.fury.io/py/open-web-search)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker Ready](https://img.shields.io/badge/docker-ready-blue)](https://www.docker.com/)
+
+</div>
 
 **Open-Web-Search** is a privacy-first, recursive search engine designed for AI Agents.
 It mimics the [Tavily API](https://tavily.com) but runs **100% locally** (or on your private cloud) using SearXNG or DuckDuckGo.
