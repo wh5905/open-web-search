@@ -165,21 +165,21 @@ config = LinkerConfig(
 
 ```mermaid
 flowchart TD
-    User[query] --> Planner[LLM Planner]
-    Planner -->|Keywords| Engine[SearXNG (Docker)]
-    Engine -->|URLs| Filter[Security Guard]
-    Filter -->|Safe URLs| Reader[Hybrid Reader]
+    User[query] --> Planner["LLM Planner"]
+    Planner -->|Keywords| Engine["SearXNG (Docker)"]
+    Engine -->|URLs| Filter["Security Guard"]
+    Filter -->|Safe URLs| Reader["Hybrid Reader"]
     
     subgraph Readers
-        Reader -->|Fast| Trafilatura[HTTP Scraper]
-        Reader -->|Stealth| Playwright[Headless Browser]
+        Reader -->|Fast| Trafilatura["HTTP Scraper"]
+        Reader -->|Stealth| Playwright["Headless Browser"]
     end
     
     Trafilatura --> Content
     Playwright --> Content
     
-    Content --> Refiner[Semantic Refiner]
-    Refiner -->|Top K Chunks| Synthesizer[LLM Answer]
+    Content --> Refiner["Semantic Refiner"]
+    Refiner -->|Top K Chunks| Synthesizer["LLM Answer"]
     Synthesizer --> Result
 ```
 
