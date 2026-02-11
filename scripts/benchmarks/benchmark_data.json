@@ -1,0 +1,82 @@
+[
+  {
+    "source": "Linker-Search",
+    "query": "What is the capital of Australia?",
+    "duration": 12.145304441452026,
+    "answer": "N/A (Pipeline Only)",
+    "results_count": 5,
+    "error": null
+  },
+  {
+    "source": "Tavily",
+    "query": "What is the capital of Australia?",
+    "duration": 0.8865854740142822,
+    "answer": "The capital of Australia is Canberra. It is located in the Australian Capital Territory.",
+    "results_count": 5,
+    "error": null
+  },
+  {
+    "source": "Linker-Search",
+    "query": "Latest huge updates in LangChain 2024",
+    "duration": 5.437649250030518,
+    "answer": "N/A (Pipeline Only)",
+    "results_count": 5,
+    "error": null
+  },
+  {
+    "source": "Tavily",
+    "query": "Latest huge updates in LangChain 2024",
+    "duration": 2.109820604324341,
+    "answer": "LangChain's latest updates in 2024 include new improvements to LangGraph Cloud and standardized tool calling. The State of AI 2024 Report highlights increased efficiency and complexity in multi-step agents. The most recent update is from July 15, 2024.",
+    "results_count": 5,
+    "error": null
+  },
+  {
+    "source": "Linker-Search",
+    "query": "Difference between Mamba architecture and Transformers",
+    "duration": 6.3414177894592285,
+    "answer": "N/A (Pipeline Only)",
+    "results_count": 5,
+    "error": null
+  },
+  {
+    "source": "Tavily",
+    "query": "Difference between Mamba architecture and Transformers",
+    "duration": 0.9038689136505127,
+    "answer": "Mamba architecture offers faster inference, longer context windows, and lower hardware requirements compared to Transformers, which rely on attention mechanisms. Mamba uses state-space models for better scalability and efficiency. Mamba may replace Transformers in specific applications requiring real-time processing.",
+    "results_count": 5,
+    "error": null
+  },
+  {
+    "source": "Linker-Search",
+    "query": "Apple price",
+    "duration": 9.573400497436523,
+    "answer": "N/A (Pipeline Only)",
+    "results_count": 5,
+    "error": null
+  },
+  {
+    "source": "Tavily",
+    "query": "Apple price",
+    "duration": 0.8626680374145508,
+    "answer": "As of today, Apple (AAPL) stock is trading around $256.44. The company has a significant market cap and is known for its innovative technology products and services. For the most current price, check a reliable financial news source.",
+    "results_count": 5,
+    "error": null
+  },
+  {
+    "source": "Linker-Search",
+    "query": "Python 3.12 release date",
+    "duration": 4.338482141494751,
+    "answer": "N/A (Pipeline Only)",
+    "results_count": 5,
+    "error": null
+  },
+  {
+    "source": "Tavily",
+    "query": "Python 3.12 release date",
+    "duration": 0.8800070285797119,
+    "answer": "Python 3.12.0 was released on October 2, 2023. Subsequent releases include 3.12.11 on June 3, 2025, and 3.12.12 on October 9, 2025. No further release dates are available beyond these.",
+    "results_count": 5,
+    "error": null
+  }
+]
