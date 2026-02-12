@@ -33,12 +33,22 @@ It mimics the [Tavily API](https://tavily.com) but runs **100% locally** (or on 
 ## ⚡ Installation & Setup
 
 ### 1. Install Library
-```bash
-# Install directly from GitHub (Development Version)
-pip install git+https://github.com/wh5905/open-web-search.git
 
-# (Coming Soon to PyPI)
-# pip install open-web-search
+**Option A: Install via pip (Recommended for usage)**
+This installs the latest version directly from GitHub.
+```bash
+pip install git+https://github.com/wh5905/open-web-search.git
+```
+
+**Option B: Clone Source (Recommended for development)**
+If you want to modify the code or see examples:
+```bash
+git clone https://github.com/wh5905/open-web-search.git
+cd open-web-search
+pip install -e .
+```
+
+<!-- (Coming Soon to PyPI: pip install open-web-search) -->
 ```
 
 ### 2. Setup (Required for Deep Mode)
