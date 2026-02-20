@@ -95,7 +95,7 @@ def stop():
     subprocess.run(["docker", "rm", "searxng"], check=False)
     print("Stopped.")
 
-def serve(host: str = "127.0.0.1", port: int = 8000, reload: bool = False):
+def serve(host: str = "127.0.0.1", port: int = 8800, reload: bool = False):
     try:
         import uvicorn
         print(f"Starting Linker-Search API Server...")
@@ -118,7 +118,7 @@ def main():
     
     serve_parser = subparsers.add_parser("serve", help="Start the Universal API Server (Tavily Mock)")
     serve_parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
-    serve_parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
+    serve_parser.add_argument("--port", type=int, default=8800, help="Port to bind to")
     serve_parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
     
     args = parser.parse_args()

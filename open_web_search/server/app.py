@@ -29,34 +29,35 @@ async def search(request: TavilyRequest):
     # Crawler Logic
     use_crawler = request.use_neural_crawler or (request.search_depth == "advanced" and mode == "deep")
     
-    config = LinkerConfig(
-        mode=mode,
-        engine_provider="searxng",
-        # Allow env var override for base URL, default to localhost
-        engine_base_url=os.getenv("SEARXNG_BASE_URL", "http://127.0.0.1:8080"),
-        search_language="auto",
+    # Handle mode overrides properly
+    try:
+        config = LinkerConfig(
+            mode=mode,
+            engine_provider="searxng",
+            engine_base_url=os.getenv("SEARXNG_BASE_URL", "http://127.0.0.1:8787"),
+            search_language="auto",
+        )
         
-        # New v0.9.0 Consiguration
-        reranker_type=request.reranker or "fast",
-        reader_type=request.reader or "trafilatura",
-        max_evidence=request.max_evidence or request.max_results,
+        # Override V1.0.0 Optional Parameters safely
+        if request.reranker:
+            config.reranker_type = request.reranker
+        if request.reader:
+            config.reader_type = request.reader
+        if request.max_evidence:
+            config.max_evidence = request.max_evidence
+            
+        # Security Policy Mapping
+        config.security.allowed_domains = request.include_domains
+        config.security.blocked_domains = request.exclude_domains
         
-        # Legacy/Crawler params (Only relevant if mode=deep)
-        use_neural_crawler=use_crawler,
-        crawler_max_pages=request.max_results if use_crawler else 3,
-        crawler_max_depth=2 if use_crawler else 1,
-        
-        security={
-            "allowed_domains": request.include_domains,
-            "blocked_domains": request.exclude_domains
-        }
-    )
+    except Exception as e:
+        logger.error(f"Config Error: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid configuration parameters: {e}")
     
     # 2. Run Pipeline (AsyncPipeline is the new standard)
     from open_web_search import AsyncPipeline
     try:
         pipeline = AsyncPipeline(config)
-        # Using context manager is safer if available, but for now standard usage:
         output = await pipeline.run(request.query)
     except Exception as e:
         logger.exception("Search failed")
