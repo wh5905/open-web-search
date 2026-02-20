@@ -38,8 +38,42 @@ class HybridRefiner(BaseRefiner):
             # Fallback to pure keyword if no model or no chunks
             return [c for c in base_chunks if c.relevance_score >= 0.1] # Explicit threshold
 
+        # --- OPTIMIZATION: Filter-First Strategy (LiteRanker) ---
+        # Only semantically encode the top K chunks based on keyword score.
+        # This saves massive CPU time on low-end hardware.
+        PRE_FILTER_LIMIT = 20
+        SAFETY_NET_COUNT = 5 # Keep first 5 chunks (Intro/Summary) regardless of score
+        
+        # 1. Selection Strategy
+        # A. Top Keyword Matches (Best Guess)
+        stats_sorted = sorted(base_chunks, key=lambda x: x.relevance_score, reverse=True)
+        top_keyword_chunks = stats_sorted[:PRE_FILTER_LIMIT]
+        
+        # B. Safety Net (First few chunks usually contain abstract/intro)
+        # This protects against "Synonym Blindness" where intro uses generic terms
+        first_chunks = base_chunks[:SAFETY_NET_COUNT]
+        
+        # Merge and Deduplicate (preserving order of relevance)
+        target_ids = set()
+        target_chunks = []
+        
+        for c in top_keyword_chunks + first_chunks:
+            if c.chunk_id not in target_ids:
+                target_chunks.append(c)
+                target_ids.add(c.chunk_id)
+
+        # Cap at Limit (if merge exceeded it significantly, though usually it overlaps)
+        # Actually, let's allow slightly more than limit if safety net adds new ones
+        # to ensure we don't drop high-score ones. 
+        # But for strict performance, let's just use the merged list (max 25 chunks).
+        
+        logger.debug(f"HybridRefiner: Optimized {len(base_chunks)} -> {len(target_chunks)} chunks (w/ Safety Net).")
+        
+        if not target_chunks:
+            return []
+
         # 2. Semantic Scoring
-        chunk_texts = [c.content for c in base_chunks]
+        chunk_texts = [c.content for c in target_chunks]
         
         try:
             # Encode query and chunks
@@ -56,7 +90,7 @@ class HybridRefiner(BaseRefiner):
             # Simple average: 0.3 * keyword_score + 0.7 * semantic_score
             combined_scores = []
             
-            for i, chunk in enumerate(base_chunks):
+            for i, chunk in enumerate(target_chunks):
                 semantic = float(scores[i])
                 keyword = chunk.relevance_score # Already normalized 0-1
                 
@@ -74,7 +108,7 @@ class HybridRefiner(BaseRefiner):
             # We want to select chunks that are high relevance but low similarity to already selected chunks.
             
             selected_indices = []
-            candidate_indices = list(range(len(base_chunks)))
+            candidate_indices = list(range(len(target_chunks)))
             
             source_counts = {} # limit max chunks per URL
             MAX_PER_SOURCE = 3
@@ -89,7 +123,7 @@ class HybridRefiner(BaseRefiner):
                 
                 for idx in candidate_indices:
                     # Check source cap
-                    url = base_chunks[idx].url
+                    url = target_chunks[idx].url
                     if source_counts.get(url, 0) >= MAX_PER_SOURCE:
                         continue
 
@@ -129,14 +163,14 @@ class HybridRefiner(BaseRefiner):
                     selected_indices.append(best_idx)
                     candidate_indices.remove(best_idx)
                     
-                    url = base_chunks[best_idx].url
+                    url = target_chunks[best_idx].url
                     source_counts[url] = source_counts.get(url, 0) + 1
                 else:
                     # No more valid candidates (e.g. all hit source caps)
                     break 
             
-            return [base_chunks[i] for i in selected_indices]
+            return [target_chunks[i] for i in selected_indices]
             
         except Exception as e:
             logger.error(f"Semantic refinement failed: {e}")
-            return base_chunks
+            return base_chunks # Fallback to keyword sort if semantic fails

@@ -3,10 +3,66 @@ from typing import List
 from open_web_search.refiners.base import BaseRefiner
 from open_web_search.schemas.results import FetchedPage, EvidenceChunk
 
+class BM25:
+    """Lightweight, offline BM25 implementation for Python."""
+    def __init__(self, corpus_tokens: List[List[str]]):
+        import math
+        from collections import Counter
+        
+        self.corpus_size = len(corpus_tokens)
+        self.avgdl = sum(len(doc) for doc in corpus_tokens) / self.corpus_size if self.corpus_size else 0
+        self.doc_freqs = []
+        self.idf = {}
+        self.doc_len = []
+        
+        # BM25 Hyperparameters (Standard defaults)
+        self.k1 = 1.5
+        self.b = 0.75
+        
+        # Build index
+        nd = {}  # word -> number of documents containing it
+        for doc in corpus_tokens:
+            self.doc_len.append(len(doc))
+            frequencies = Counter(doc)
+            self.doc_freqs.append(frequencies)
+            for word in frequencies:
+                nd[word] = nd.get(word, 0) + 1
+                
+        # Calculate IDF
+        for word, freq in nd.items():
+            idf_score = math.log(((self.corpus_size - freq + 0.5) / (freq + 0.5)) + 1.0)
+            self.idf[word] = idf_score
+
+    def get_score(self, query_tokens: List[str], doc_index: int) -> float:
+        score = 0.0
+        doc_len = self.doc_len[doc_index]
+        frequencies = self.doc_freqs[doc_index]
+        
+        for word in query_tokens:
+            if word not in frequencies:
+                continue
+            tf = frequencies[word]
+            idf = self.idf.get(word, 0)
+            
+            # TF scaling
+            numerator = tf * (self.k1 + 1)
+            denominator = tf + self.k1 * (1 - self.b + self.b * (doc_len / self.avgdl))
+            score += idf * (numerator / denominator)
+            
+        return score
+
 class KeywordRefiner(BaseRefiner):
     def __init__(self, chunk_size: int = 500, min_relevance: float = 0.1):
         self.chunk_size = chunk_size
         self.min_relevance = min_relevance
+        # Stop words to ignore during tokenization
+        self.stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'current', 'latest', 'recent', 'it', 'this', 'that'}
+
+    def _tokenize(self, text: str) -> List[str]:
+        # Simple fast tokenization
+        import re
+        words = re.findall(r'\b\w+\b', text.lower())
+        return [w for w in words if w not in self.stop_words and len(w) > 1]
 
     def _simple_chunk(self, text: str) -> List[str]:
         # Improved chunking: split by paragraphs, then sentences if too large
@@ -61,56 +117,62 @@ class KeywordRefiner(BaseRefiner):
             
         return chunks
 
-    def _score_chunk(self, chunk: str, query_terms: List[str]) -> float:
-        text_lower = chunk.lower()
-        score = 0.0
-        match_count = 0
-        
-        # Stop words to ignore (simple list)
-        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'current', 'latest', 'recent'}
-        
-        valid_terms = [t for t in query_terms if t not in stop_words and len(t) > 2]
-        
-        if not valid_terms:
-            # If all terms were stop words, fall back to original
-            valid_terms = query_terms
-            
-        for term in valid_terms:
-            if term in text_lower:
-                score += 1.0
-                match_count += 1
-        
-        # Boost if multiple different terms are present
-        coverage = match_count / len(valid_terms) if valid_terms else 0
-        
-        # Final score is mix of term frequency (implied) and coverage
-        # But here we just count existence. 
-        # Let's boost meaningful terms.
-        
-        return coverage # Returns 0.0 to 1.0 representing "how many of the query terms are in this chunk"
-
     async def refine(self, pages: List[FetchedPage], query: str) -> List[EvidenceChunk]:
         evidence = []
-        query_terms = [t.lower() for t in query.split() if len(t) > 2]
+        query_tokens = self._tokenize(query)
+        
+        if not query_tokens:
+            return evidence # Edge case: query was just stop words
+            
+        # 1. Gather all chunks across all pages to build Corpus
+        all_chunks_info = [] # (page_url, page_title, chunk_text)
+        corpus_tokens = []
         
         for page in pages:
             if not page.text_plain:
                 continue
             
             chunks = self._simple_chunk(page.text_plain)
-            for idx, chunk_text in enumerate(chunks):
-                score = self._score_chunk(chunk_text, query_terms)
+            for chunk_text in chunks:
+                all_chunks_info.append((page.url, page.title, chunk_text))
+                corpus_tokens.append(self._tokenize(chunk_text))
                 
-                if score >= self.min_relevance:
-                    chunk_id = hashlib.md5(f"{page.url}_{idx}".encode()).hexdigest()
-                    evidence.append(EvidenceChunk(
-                        url=page.url,
-                        chunk_id=chunk_id,
-                        content=chunk_text,
-                        relevance_score=score,
-                        title=page.title
-                    ))
+        if not corpus_tokens:
+            return evidence
+            
+        # 2. Build BM25 Index
+        bm25 = BM25(corpus_tokens)
         
+        # 3. Score against query
+        max_score = 0.0
+        raw_results = []
+        
+        for idx, (url, title, chunk_text) in enumerate(all_chunks_info):
+            score = bm25.get_score(query_tokens, idx)
+            if score > max_score: max_score = score
+            
+            raw_results.append({
+                "url": url,
+                "title": title,
+                "content": chunk_text,
+                "score": score,
+                "idx": idx
+            })
+            
+        # 4. Normalize scores to [0, 1] range to match BaseRefiner expectations
+        # (HybridRefiner expects min_relevance scaling)
+        for r in raw_results:
+            normalized = (r["score"] / max_score) if max_score > 0 else 0.0
+            if normalized >= self.min_relevance:
+                 chunk_id = hashlib.md5(f'{r["url"]}_{r["idx"]}'.encode()).hexdigest()
+                 evidence.append(EvidenceChunk(
+                     url=r["url"],
+                     chunk_id=chunk_id,
+                     content=r["content"],
+                     relevance_score=normalized,
+                     title=r["title"]
+                 ))
+                 
         # Sort by score desc
         evidence.sort(key=lambda x: x.relevance_score, reverse=True)
         return evidence

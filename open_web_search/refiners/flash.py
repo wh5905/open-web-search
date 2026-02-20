@@ -32,9 +32,18 @@ class FlashRefiner(BaseRefiner):
         try:
             from sentence_transformers import CrossEncoder
             
-            # Use GPU if available, else CPU
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            logger.debug(f"⚡ [FlashRanker] Device: {device}")
+            # Determine Device based on Config
+            device = self.config.device
+            
+            if device == "auto":
+                if torch.cuda.is_available():
+                    device = "cuda"
+                elif torch.backends.mps.is_available():
+                    device = "mps"
+                else:
+                    device = "cpu"
+            
+            logger.info(f"⚡ [FlashRanker] Device Selected: {device} (Config: {self.config.device})")
 
             self.model = CrossEncoder(model_name, device=device, trust_remote_code=True)
             self._is_loaded = True
@@ -81,6 +90,13 @@ class FlashRefiner(BaseRefiner):
         
         # 6. Filter Top K
         top_k = ranked_chunks[:self.config.max_evidence]
+        
+        # 7. Identify Smart Snippets (Context)
+        # If score > 0.85 (Cross-Encoder is very confident), mark as answer
+        for chunk in top_k:
+            if chunk.relevance_score > 0.85:
+                chunk.is_answer = True
+                logger.info(f"⚡ [FlashRanker] Found High-Confidence Answer: {chunk.relevance_score:.4f}")
         
         if top_k:
             logger.info(f"⚡ [FlashRanker] Top chunk score: {top_k[0].relevance_score:.4f}")
