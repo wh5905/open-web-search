@@ -54,6 +54,7 @@ pip install -e .
 <!-- (Coming Soon to PyPI: pip install open-web-search) -->
 
 ### 2. Choose Your Backend (Zero-Setup vs Pro)
+
 Open-Web-Search runs perfectly out-of-the-box using our **V2 Stealth DuckDuckGo Engine**. 
 However, for production AI agents, we strongly recommend running the **SearXNG Docker container** to unlock true Meta-Search (Google+Scholar+Bing combined) and unlimited rate limits.
 
@@ -73,6 +74,7 @@ However, for production AI agents, we strongly recommend running the **SearXNG D
 ## 🧠 Why FlashRanker? (The "Deep" Brain)
 
 Standard search APIs only give you **Snippets** (1-2 sentences). This is often not enough for complex AI tasks.
+
 *   **Without FlashRanker**: LLM guesses based on snippets. (High Hallucination)
 *   **With FlashRanker**: Linker reads the **Full Webpage**, filters it through **BM25**, and uses a specialized AI (Cross-Encoder) to pick the **Exact Paragraphs** needed.
     *   ✅ **90% Less Noise**: Ads, menus, and footers are removed instantly via `selectolax`.
@@ -244,9 +246,11 @@ flowchart TD
 ## 🤝 Contributing
 
 We love contributions! Please see `CONTRIBUTING.md`.
+
 1. Fork the repo.
 2. Create feature branch.
 3. Submit PR.
 
 ## 📄 License
+
 Distributed under the MIT License. See `LICENSE` for more information.
