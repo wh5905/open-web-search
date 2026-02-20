@@ -77,6 +77,17 @@ TAVILY_API_KEY=ows-local-key  # Arbitrary key (authentication disabled locally)
 TAVILY_API_URL=http://127.0.0.1:7800/search
 ```
 
+**New in v0.9.0: Advanced Server Params**
+You can pass additional parameters to control the engine:
+```json
+{
+  "query": "Analysis of GPT-4",
+  "mode": "deep",        // fast, balanced, deep
+  "reranker": "flash",   // fast, flash
+  "reader": "browser"    // trafilatura, browser
+}
+```
+
 ### Scenario B: Python Library (Direct)
 Use it directly in your Python code for maximum control.
 

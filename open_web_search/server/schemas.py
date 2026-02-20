@@ -14,6 +14,12 @@ class TavilyRequest(BaseModel):
     
     # Extensions for Linker-Search
     use_neural_crawler: bool = False
+    
+    # v0.9.0 API Extensions
+    mode: Optional[str] = None      # fast, balanced, deep
+    reranker: Optional[str] = None  # fast, flash
+    reader: Optional[str] = None    # trafilatura, browser
+    max_evidence: Optional[int] = None
 
 class TavilyImage(BaseModel):
     url: str

@@ -1,9 +1,9 @@
 import asyncio
 from typing import List, Optional
-import httpx
-from bs4 import BeautifulSoup
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
+from curl_cffi import requests as curl_requests
+from selectolax.parser import HTMLParser
 
 from open_web_search.engines.base import BaseSearchEngine
 from open_web_search.schemas.results import SearchResult
@@ -13,10 +13,12 @@ class SearxngEngine(BaseSearchEngine):
         self.base_url = base_url.rstrip("/")
         self.language = language
         self.max_retries = max_retries
-        self.client = httpx.AsyncClient(
+        
+        # We use a persistent async session with Chrome 120 impersonation
+        self.client = curl_requests.AsyncSession(
+            impersonate="chrome120",
             timeout=10.0,
             headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "X-Real-IP": "127.0.0.1",
                 "X-Forwarded-For": "127.0.0.1"
             }
@@ -35,20 +37,21 @@ class SearxngEngine(BaseSearchEngine):
             resp = await self.client.get(f"{self.base_url}/search", params=params)
             resp.raise_for_status()
             
-            soup = BeautifulSoup(resp.text, "html.parser")
+            # Selectolax is significantly faster than BeautifulSoup
+            tree = HTMLParser(resp.text)
             
             # Select results
             # Standard SearXNG simple theme structure
-            for article in soup.select("article.result")[:10]:
-                h3 = article.select_one("h3 a")
+            for article in tree.css("article.result")[:10]:
+                h3 = article.css_first("h3 a")
                 if not h3:
                     continue
                     
-                title = h3.get_text(strip=True)
-                url = h3['href']
+                title = h3.text(strip=True)
+                url = h3.attributes.get('href', '')
                 
-                snippet_div = article.select_one(".content")
-                snippet = snippet_div.get_text(strip=True) if snippet_div else ""
+                snippet_div = article.css_first(".content")
+                snippet = snippet_div.text(strip=True) if snippet_div else ""
                 
                 results.append(SearchResult(
                     title=title,
@@ -59,7 +62,7 @@ class SearxngEngine(BaseSearchEngine):
                     raw={"title": title, "url": url, "content": snippet}
                 ))
 
-        except httpx.RequestError as e:
+        except curl_requests.errors.RequestsError as e:
             logger.warning(f"SearXNG connection failed: {e}. Is the container running?")
         except Exception as e:
             logger.warning(f"SearXNG search failed for '{query}': {e}")
@@ -95,4 +98,9 @@ class SearxngEngine(BaseSearchEngine):
         return final_results
         
     async def close(self):
-        await self.client.aclose()
+        # Await if it's a coroutine, or just call if it's a synchronous method
+        if hasattr(self.client, 'close'):
+            if asyncio.iscoroutinefunction(self.client.close):
+                await self.client.close()
+            else:
+                self.client.close()

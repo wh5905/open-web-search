@@ -11,7 +11,7 @@ class SecurityConfig(BaseModel):
     network_profile: Literal["public", "enterprise"] = "public"
 
 class LinkerConfig(BaseModel):
-    mode: Literal["fast", "balanced", "deep"] = "deep"
+    mode: Literal["turbo", "fast", "balanced", "deep"] = "deep"
     
     # Engine Settings
     engine_provider: Literal["ddg", "google_cse", "searxng"] = "ddg"
@@ -35,7 +35,7 @@ class LinkerConfig(BaseModel):
     crawler_max_pages: int = 3
 
     # Search Settings
-    search_language: str = "auto"  # 'auto', 'en-US', 'ko-KR', etc.
+    search_language: str = "auto"  # 'auto' (defaults to 'us-en'), 'en-US', 'ko-KR', etc.
     
     # Refiner Settings
     chunk_size: int = 1000
@@ -49,6 +49,7 @@ class LinkerConfig(BaseModel):
     # FlashRanker Settings (ADR 004)
     reranker_type: Literal["fast", "flash"] = "fast" # 'fast'=Bi-Encoder, 'flash'=Cross-Encoder/SLM
     reranker_model: str = "BAAI/bge-reranker-v2-m3" # Default Flash model
+    device: Literal["auto", "cpu", "cuda", "mps"] = "auto" # Inference Device
 
     # Enterprise Settings (Phase 17)
     custom_headers: dict = Field(default_factory=dict) # Cookie, Authorization, etc.
@@ -63,32 +64,84 @@ class LinkerConfig(BaseModel):
     
     observability_level: Literal["basic", "full"] = "basic"
 
-    def set_mode(self, mode: Literal["fast", "balanced", "deep"]):
+    def set_mode(self, mode: Literal["turbo", "fast", "balanced", "deep"]):
         """
         Applies preset configurations for the selected mode.
         """
         self.mode = mode
-        if mode == "fast":
-            # Turbo Mode: Latency is king (<3s goal)
+        if mode == "turbo":
+            # Zero-Fetch Mode: Snippet Synthesis Only (< 0.8s goal)
+            self.concurrency = 10
+            self.reader_timeout = 1
+            self.enable_stealth_escalation = False 
+            self.reranker_type = "fast" 
+            self.max_evidence = 3
+            self.chunk_size = 500
+            
+        elif mode == "fast":
+            # Fast Mode: Low Latency (< 2s goal)
             self.concurrency = 10
             self.reader_timeout = 3
             self.enable_stealth_escalation = False # Disable slow Playwright
+            self.reranker_type = "fast" # Use Bi-Encoder
             self.max_evidence = 3
             self.chunk_size = 500 # Faster processing
             
         elif mode == "balanced":
-            # Default: Good mix of speed and robustness
+            # Default: Good mix of speed and robustness (< 5s goal)
             self.concurrency = 5
             self.reader_timeout = 10
-            self.enable_stealth_escalation = True
+            self.enable_stealth_escalation = True # Enable Fallback
+            self.reranker_type = "fast" # Use Bi-Encoder for speed
             self.max_evidence = 5
             self.chunk_size = 1000
+            self.enable_snippet_fallback = True
 
         elif mode == "deep":
-            # Researcher: Quality above all
+            # Researcher: Quality above all (> 10s allowed)
             self.concurrency = 3 # Be polite to servers
             self.reader_timeout = 30
-            self.enable_stealth_escalation = True
+            self.enable_stealth_escalation = True # Aggressive recovery
+            self.reranker_type = "flash" # Use Cross-Encoder (FlashRanker)
             self.max_evidence = 10
             self.chunk_size = 2000
             self.crawler_max_depth = 2 # Enable recursive crawling
+            self.enable_snippet_fallback = True # Salvage snippets if strictly blocked
+            
+        # Try to upgrade to SearXNG if available (Smart Auto-Detect)
+        self._auto_detect_engine()
+
+    def _auto_detect_engine(self):
+        """
+        Smartly detects if SearXNG is running locally and upgrades the engine.
+        """
+        # Only auto-detect if user hasn't explicitly set a remote engine or API key
+        if self.engine_provider != "ddg" and self.engine_api_key:
+            return
+
+        import socket
+        
+        # Common SearXNG ports
+        potential_urls = [
+            ("http://localhost:8787", 8787),
+            ("http://localhost:8080", 8080),
+            ("http://localhost:8888", 8888)
+        ]
+        
+        from loguru import logger
+        
+        for url, port in potential_urls:
+            try:
+                # Fast socket check (timeout 0.1s)
+                with socket.create_connection(("localhost", port), timeout=0.1):
+                    self.engine_provider = "searxng"
+                    self.engine_base_url = url
+                    logger.info(f"🚀 [LinkerConfig] SearXNG detected at {url}. Upgrading engine provider!")
+                    return
+            except (socket.timeout, ConnectionRefusedError, OSError):
+                continue
+        
+        # If we reached here, SearXNG was not found.
+        # Quietly log a tip if we are in deep mode (where it matters most)
+        if self.mode == "deep":
+            logger.info("💡 [Tip] For better results, run SearXNG locally: 'docker run -d -p 8787:8080 searxng/searxng'")

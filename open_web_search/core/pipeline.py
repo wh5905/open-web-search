@@ -8,7 +8,7 @@ from open_web_search.schemas.results import PipelineOutput, SearchResult, Fetche
 
 from open_web_search.engines.ddg import DuckDuckGoEngine
 from open_web_search.engines.searxng import SearxngEngine
-from open_web_search.readers.trafilatura_reader import TrafilaturaReader
+from open_web_search.readers.v2_reader import V2Reader
 from open_web_search.readers.pdf_reader import PdfReader
 from open_web_search.readers.browser import PlaywrightReader
 from open_web_search.refiners.keyword import KeywordRefiner
@@ -43,8 +43,8 @@ class AsyncPipeline:
             # Map standard language codes to DDG regions if needed
             # For simplicity, passing config.search_language directly.
             # Users should use 'us-en', 'kr-kr', 'wt-wt' formats.
-            # Default 'auto' maps to 'wt-wt' (World Time/No region)
-            ddg_region = "wt-wt"
+            # Default 'auto' maps to 'us-en' (Safe default to avoid IP-based bias)
+            ddg_region = "us-en"
             if self.config.search_language and self.config.search_language != "auto":
                 ddg_region = self.config.search_language
                 
@@ -72,7 +72,7 @@ class AsyncPipeline:
                 custom_headers=self.config.custom_headers
             )
         else:
-            self.reader = TrafilaturaReader(
+            self.reader = V2Reader(
                 concurrency=self.config.concurrency,
                 custom_headers=self.config.custom_headers
             )
@@ -105,6 +105,7 @@ class AsyncPipeline:
             
         self.security = SecurityGuard(self.config.security)
         self.planner = Planner(self.config)
+        self._resilient_browser = None # Lazy loaded singleton for resilience
 
     async def run(self, query: str, context: Optional[dict] = None) -> PipelineOutput:
         start_time = time.time()
@@ -148,69 +149,45 @@ class AsyncPipeline:
             
             pages = []
             
-            # Browser/Standard Reading
-            if self.crawler:
-                logger.info(f"[{self.request_id}] Engaging Neural Web Walker...")
-                # Crawl recursively starting from HTML URLs
-                if urls:
-                    pages.extend(await self.crawler.crawl(
-                        start_urls=urls, 
-                        query=query, 
-                        max_pages=self.config.crawler_max_pages,
-                        depth=self.config.crawler_max_depth
-                    ))
-            elif urls:
-                logger.debug(f"[{self.request_id}] Reading {len(urls)} pages (Standard)")
-                pages.extend(await self.reader.read_many(urls))
-                
-                # --- STEALTH ESCALATION (Phase 16) ---
-                if self.config.enable_stealth_escalation and not isinstance(self.reader, PlaywrightReader):
-                    failed_urls = []
-                    for p in pages:
-                        # Heuristic: Blocked if empty, error, or very short content
-                        is_blocked = (
-                            p.error is not None or 
-                            not p.text_plain or 
-                            len(p.text_plain) < 300 or # Too short strictly
-                            "enable javascript" in (p.text_plain or "").lower() or
-                            "cloudflare" in (p.text_plain or "").lower()
+            # --- EXTREME OPTIMIZATION: ZERO-FETCH TURBO MODE ---
+            if getattr(self.config, "mode", "balanced") == "turbo":
+                logger.info(f"[{self.request_id}] ⚡ TURBO MODE: Bypassing Reader, using Search Snippets only.")
+                # Directly construct virtual pages from snippets
+                for r in results:
+                    if r.url in urls or r.url in pdf_urls:
+                        vp = FetchedPage(
+                            url=r.url,
+                            title=r.title,
+                            text_plain=f"Source: {r.url}\nTitle: {r.title}\n\nSummary (from Search Engine):\n{r.snippet}",
+                            status_code=200
                         )
-                        if is_blocked:
-                            failed_urls.append(p.url)
+                        pages.append(vp)
+            else:
+                # Browser/Standard Reading
+                if self.crawler:
+                    logger.info(f"[{self.request_id}] Engaging Neural Web Walker...")
+                    # Crawl recursively starting from HTML URLs
+                    if urls:
+                        pages.extend(await self.crawler.crawl(
+                            start_urls=urls, 
+                            query=query, 
+                            max_pages=self.config.crawler_max_pages,
+                            depth=self.config.crawler_max_depth
+                        ))
+                elif urls:
+                    logger.debug(f"[{self.request_id}] Reading {len(urls)} pages (Standard)")
+                    pages.extend(await self.reader.read_many(urls))
                     
-                    if failed_urls:
-                        logger.warning(f"[{self.request_id}] Escalating {len(failed_urls)} blocked URLs to Stealth Mode (Playwright)...")
-                        # JIT Initialization of PlaywrightReader to save efficiency
-                        # We use a context manager approach if possible, or just init/close
-                        try:
-                            # Use reduced concurrency for heavy browser
-                            stealth_reader = PlaywrightReader(
-                                concurrency=2, 
-                                headless=True,
-                                custom_headers=self.config.custom_headers
-                            )
-                            stealth_pages = await stealth_reader.read_many(failed_urls)
-                            await stealth_reader.close()
-                            
-                            # Merge results back: Replace failed pages with stealth pages
-                            stealth_map = {op.url: op for op in stealth_pages}
-                            new_pages = []
-                            for p in pages:
-                                if p.url in stealth_map and stealth_map[p.url].text_plain and len(stealth_map[p.url].text_plain) > 100:
-                                    logger.info(f"[{self.request_id}] Stealth Recovery Success for {p.url}")
-                                    new_pages.append(stealth_map[p.url])
-                                else:
-                                    new_pages.append(p)
-                            pages = new_pages
-                            
-                        except Exception as e:
-                            logger.error(f"[{self.request_id}] Stealth Escalation failed: {e}")
-                # -------------------------------------
+                    # --- STEALTH ESCALATION (Phase 16 - Resilient Upgrade) ---
+                    if self.config.enable_stealth_escalation and not isinstance(self.reader, PlaywrightReader):
+                        pages, stats = await self._recover_with_browser(pages, self.request_id)
+                        output.telemetry.update(stats)
+                    # -------------------------------------
                 
-            # PDF Reading
-            if pdf_urls and self.pdf_reader:
-                logger.debug(f"[{self.request_id}] Reading {len(pdf_urls)} PDF documents")
-                pages.extend(await self.pdf_reader.read_many(pdf_urls))
+                # PDF Reading
+                if pdf_urls and self.pdf_reader:
+                    logger.debug(f"[{self.request_id}] Reading {len(pdf_urls)} PDF documents")
+                    pages.extend(await self.pdf_reader.read_many(pdf_urls))
             
             
             # Sanitize pages
@@ -285,5 +262,79 @@ class AsyncPipeline:
             # For now, let's close it to be safe and avoid zombies in CLI usage.
             if hasattr(self.reader, 'close'):
                  await self.reader.close()
+            # Cleanup Resilient Browser if initialized
+            if self._resilient_browser and hasattr(self._resilient_browser, 'close'):
+                await self._resilient_browser.close()
             
         return output
+
+        return output
+
+    async def _recover_with_browser(self, pages: List[FetchedPage], req_id: str) -> tuple[List[FetchedPage], dict]:
+        """
+        Resilience: Detects failed/blocked pages and re-fetches them using a Headless Browser.
+        Lazy-loads the browser reader to save resources.
+        Returns: (updated_pages, telemetry_data)
+        """
+        telemetry = {"resilience_triggered": False, "recovered_count": 0, "attempted_urls": []}
+        
+        failed_urls = []
+        for p in pages:
+            # Heuristic: Blocked if empty, error, or very short content
+            is_blocked = (
+                p.error is not None or 
+                not p.text_plain or 
+                len(p.text_plain) < 300 or # Too short strictly
+                "enable javascript" in (p.text_plain or "").lower() or
+                "cloudflare" in (p.text_plain or "").lower()
+            )
+            if is_blocked:
+                failed_urls.append(p.url)
+        
+        if not failed_urls:
+            return pages, telemetry
+
+        telemetry["resilience_triggered"] = True
+        telemetry["attempted_urls"] = failed_urls
+        logger.warning(f"[{req_id}] 🛡️ Resilience Triggered: Recovering {len(failed_urls)} blocked URLs via Browser...")
+        
+        # Lazy Init Singleton Browser
+        if not self._resilient_browser:
+            try:
+                self._resilient_browser = PlaywrightReader(
+                    concurrency=2,
+                    headless=True,
+                    custom_headers=self.config.custom_headers
+                )
+                logger.info(f"[{req_id}] Initialized Resilient Browser (Singleton)")
+            except Exception as e:
+                logger.error(f"[{req_id}] Failed to init Resilient Browser: {e}")
+                telemetry["error"] = str(e)
+                return pages, telemetry
+
+        try:
+            stealth_pages = await self._resilient_browser.read_many(failed_urls)
+            
+            # Merge results back: Replace failed pages with stealth pages
+            stealth_map = {op.url: op for op in stealth_pages}
+            new_pages = []
+            recovery_count = 0
+            
+            for p in pages:
+                if p.url in stealth_map:
+                    sp = stealth_map[p.url]
+                    if sp.text_plain and len(sp.text_plain) > 100:
+                        logger.info(f"[{req_id}] ✅ Recovered: {p.url}")
+                        new_pages.append(sp)
+                        recovery_count += 1
+                        continue
+                new_pages.append(p)
+            
+            telemetry["recovered_count"] = recovery_count
+            logger.info(f"[{req_id}] Resilience Summary: Recovered {recovery_count}/{len(failed_urls)} pages.")
+            return new_pages, telemetry
+            
+        except Exception as e:
+            logger.error(f"[{req_id}] Resilience failed during read: {e}")
+            telemetry["error"] = str(e)
+            return pages, telemetry

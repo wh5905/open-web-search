@@ -32,6 +32,7 @@ class EvidenceChunk(BaseModel):
     end_char: Optional[int] = None
     relevance_score: float
     title: Optional[str] = None
+    is_answer: bool = False  # New in v0.9.5: High confidence answer snippet
 
 class PipelineOutput(BaseModel):
     query: str
@@ -42,5 +43,6 @@ class PipelineOutput(BaseModel):
     elapsed_ms: int = 0
     warnings: List[str] = Field(default_factory=list)
     trace: Dict[str, Any] = Field(default_factory=dict)
+    telemetry: Dict[str, Any] = Field(default_factory=dict) # New in v0.9.5: Resilience tracking
     blocked_domains: List[str] = Field(default_factory=list)
     answer: Optional[str] = None

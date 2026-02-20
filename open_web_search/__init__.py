@@ -3,7 +3,7 @@ from .core.pipeline import AsyncPipeline
 from .core.loop import DeepResearchLoop
 from .schemas.results import PipelineOutput
 
-__version__ = "0.7.0"
+__version__ = "1.0.0"
 __all__ = ["LinkerConfig", "SecurityConfig", "AsyncPipeline", "DeepResearchLoop", "search"]
 
 # Global singleton for Level 1/2

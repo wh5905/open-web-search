@@ -4,7 +4,7 @@ from loguru import logger
 import os
 
 from open_web_search.config import LinkerConfig
-from open_web_search.core.loop import DeepResearchLoop
+from open_web_search.core.loop import DeepResearchLoop # Kept for backward compat if needed, but not used in new flow
 from open_web_search.server.schemas import TavilyRequest, TavilyResponse, TavilySearchResult
 
 app = FastAPI(title="Linker-Search Universal API", version="0.3.0")
@@ -19,11 +19,15 @@ async def search(request: TavilyRequest):
     start_time = time.time()
     logger.info(f"API Request: {request.query} (depth={request.search_depth})")
     
-    # 1. Map Tavily Params to Linker Config
-    mode = "deep" if request.search_depth == "advanced" else "fast"
+    # 1. Map Parameters to Linker Config
+    # Default to 'deep' if advanced, else 'fast'
+    default_mode = "deep" if request.search_depth == "advanced" else "fast"
     
-    # Crawler Logic: If specific flag OR 'advanced' depth
-    use_crawler = request.use_neural_crawler or (request.search_depth == "advanced")
+    # Priority: Explicit mode > Search Depth > Default
+    mode = request.mode or default_mode
+    
+    # Crawler Logic
+    use_crawler = request.use_neural_crawler or (request.search_depth == "advanced" and mode == "deep")
     
     config = LinkerConfig(
         mode=mode,
@@ -31,13 +35,16 @@ async def search(request: TavilyRequest):
         # Allow env var override for base URL, default to localhost
         engine_base_url=os.getenv("SEARXNG_BASE_URL", "http://127.0.0.1:8080"),
         search_language="auto",
-        reader_type="browser",
         
+        # New v0.9.0 Consiguration
+        reranker_type=request.reranker or "fast",
+        reader_type=request.reader or "trafilatura",
+        max_evidence=request.max_evidence or request.max_results,
+        
+        # Legacy/Crawler params (Only relevant if mode=deep)
         use_neural_crawler=use_crawler,
         crawler_max_pages=request.max_results if use_crawler else 3,
         crawler_max_depth=2 if use_crawler else 1,
-        
-        max_evidence=request.max_results, # Try to match result count
         
         security={
             "allowed_domains": request.include_domains,
@@ -45,10 +52,12 @@ async def search(request: TavilyRequest):
         }
     )
     
-    # 2. Run Agent
+    # 2. Run Pipeline (AsyncPipeline is the new standard)
+    from open_web_search import AsyncPipeline
     try:
-        agent = DeepResearchLoop(config=config)
-        output = await agent.run(request.query)
+        pipeline = AsyncPipeline(config)
+        # Using context manager is safer if available, but for now standard usage:
+        output = await pipeline.run(request.query)
     except Exception as e:
         logger.exception("Search failed")
         raise HTTPException(status_code=500, detail=str(e))
